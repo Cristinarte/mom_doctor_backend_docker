@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\TestController;
 
 Route::middleware(['auth:sanctum'])->get('/user', function (Request $request) {
     return $request->user();
@@ -31,3 +32,5 @@ Route::middleware('auth:sanctum')->controller(MedicalLetterController::class)->g
     Route::put('/medical/{id}', 'update');
     Route::delete('/medical/{id}', 'destroy');
 });
+
+Route::get('/test-url', [TestController::class, 'testUrl']);
