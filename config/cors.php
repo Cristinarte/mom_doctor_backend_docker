@@ -19,7 +19,8 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['*'],
+    'allowed_origins' => [env('FRONTEND_URL', 'https://momdocotor.web.app')],
+
 
     'allowed_origins_patterns' => [],
 
