@@ -34,3 +34,7 @@ Route::middleware('auth:sanctum')->controller(MedicalLetterController::class)->g
 });
 
 Route::get('/test-url', [TestController::class, 'testUrl']);
+
+Route::get('/ping', function () {
+    return 'Pong';
+});
