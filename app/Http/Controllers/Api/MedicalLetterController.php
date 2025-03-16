@@ -19,6 +19,8 @@ class MedicalLetterController extends Controller
 
     public function store(Request $request)
     {
+        Log::info('Datos recibidos para crear volante:', $request->all());
+    
         $validated = $request->validate([
             'user_id' => 'required|exists:users,id',
             'name_children' => 'required|string',
@@ -27,31 +29,37 @@ class MedicalLetterController extends Controller
             'visit_place' => 'required|string',
             'visit_date' => 'required|date',
         ]);
-
+    
+        Log::info('Datos validados correctamente:', $validated);
+    
         if ($request->hasFile('file_path') && $request->file('file_path')->isValid()) {
-            // Subir archivo a Cloudinary
-            $file = $request->file('file_path');
-            $uploadedFile = Cloudinary::upload($file->getRealPath(), [
-                'folder' => 'medical_letters', // Opcional: agrega una carpeta en Cloudinary
-            ]);
-            
-            $filePath = $uploadedFile->getSecureUrl(); // Obtiene la URL segura del archivo subido
+            try {
+                $filePath = $request->file('file_path')->store('medical_letters', 'cloudinary');
+                Log::info('Archivo subido a Cloudinary:', ['file_path' => $filePath]);
+            } catch (\Exception $e) {
+                Log::error('Error al subir el archivo a Cloudinary:', ['error' => $e->getMessage()]);
+                return response()->json(['message' => 'Error al subir el archivo'], 500);
+            }
         } else {
+            Log::error('Archivo no válido o no proporcionado');
             return response()->json(['message' => 'Archivo no válido'], 400);
         }
-
+    
         $userId = auth()->id();
         $medicalLetter = MedicalLetter::create([
             'user_id' => $userId,
             'name_children' => $validated['name_children'],
             'specialist_name' => $validated['specialist_name'],
-            'file_path' => $filePath, // Guardamos la URL de Cloudinary
+            'file_path' => $filePath,
             'visit_place' => $validated['visit_place'],
             'visit_date' => $validated['visit_date'],
         ]);
-
+    
+        Log::info('Volante creado correctamente:', $medicalLetter->toArray());
+    
         return response()->json($medicalLetter, 201);
     }
+    
 
     public function show($id)
     {
