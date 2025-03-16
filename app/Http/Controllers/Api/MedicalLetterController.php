@@ -7,7 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\MedicalLetter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
+
 
 class MedicalLetterController extends Controller
 {
@@ -19,47 +19,32 @@ class MedicalLetterController extends Controller
 
     public function store(Request $request)
     {
-        // Validación
-        $request->validate([
+        $validated = $request->validate([
+            'user_id' => 'required|exists:users,id',
             'name_children' => 'required|string',
-            'specialist_name' => 'required|string',
+            'specialist_name' => 'nullable|string|max:255',
+            'file_path' => 'required|file|mimes:jpg,jpeg,png,gif|max:2048',
             'visit_place' => 'required|string',
             'visit_date' => 'required|date',
-            'file_path' => 'required|file|mimes:jpg,jpeg,png', // Asegúrate de permitir solo los tipos de archivo correctos
         ]);
-    
-        try {
-            // Subir archivo a Cloudinary
-            $uploadedFile = Cloudinary::upload($request->file('file_path')->getRealPath(), [
-                'folder' => 'medical_letters',  // Especifica la carpeta
-            ]);
-    
-            // Obtener la URL segura del archivo subido
-            $filePath = $uploadedFile->getSecureUrl();
-    
-            // Crear el volante con la URL de Cloudinary
-            $volante = new Volante([
-                'name_children' => $request->input('name_children'),
-                'specialist_name' => $request->input('specialist_name'),
-                'visit_place' => $request->input('visit_place'),
-                'visit_date' => $request->input('visit_date'),
-                'file_path' => $filePath, // Guardamos la URL de Cloudinary
-            ]);
-    
-            // Guardar el volante en la base de datos
-            $volante->save();
-    
-            return response()->json(['message' => 'Volante creado con éxito', 'volante' => $volante], 201);
-    
-        } catch (\Exception $e) {
-            // Log de error detallado para depuración
-            Log::error('Error al subir el archivo a Cloudinary:', ['error' => $e->getMessage()]);
-    
-            return response()->json([
-                'message' => 'Error al subir el archivo. Por favor, revisa los logs para más detalles.',
-                'error' => $e->getMessage() // Incluir el error para depuración
-            ], 500);
+
+        if ($request->hasFile('file_path') && $request->file('file_path')->isValid()) {
+            $filePath = $request->file('file_path')->store('medical_letters', 'public');
+        } else {
+            return response()->json(['message' => 'Archivo no válido'], 400);
         }
+
+        $userId = auth()->id();
+        $medicalLetter = MedicalLetter::create([
+            'user_id' => $userId,
+            'name_children' => $validated['name_children'],
+            'specialist_name' => $validated['specialist_name'],
+            'file_path' => $filePath,
+            'visit_place' => $validated['visit_place'],
+            'visit_date' => $validated['visit_date'],
+        ]);
+
+        return response()->json($medicalLetter, 201);
     }
 
     public function show($id)
