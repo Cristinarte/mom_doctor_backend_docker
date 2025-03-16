@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\MedicalLetter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 
 class MedicalLetterController extends Controller
 {
@@ -28,7 +29,13 @@ class MedicalLetterController extends Controller
         ]);
 
         if ($request->hasFile('file_path') && $request->file('file_path')->isValid()) {
-            $filePath = $request->file('file_path')->store('medical_letters', 'public');
+            // Subir archivo a Cloudinary
+            $file = $request->file('file_path');
+            $uploadedFile = Cloudinary::upload($file->getRealPath(), [
+                'folder' => 'medical_letters', // Opcional: agrega una carpeta en Cloudinary
+            ]);
+            
+            $filePath = $uploadedFile->getSecureUrl(); // Obtiene la URL segura del archivo subido
         } else {
             return response()->json(['message' => 'Archivo no válido'], 400);
         }
@@ -38,7 +45,7 @@ class MedicalLetterController extends Controller
             'user_id' => $userId,
             'name_children' => $validated['name_children'],
             'specialist_name' => $validated['specialist_name'],
-            'file_path' => $filePath,
+            'file_path' => $filePath, // Guardamos la URL de Cloudinary
             'visit_place' => $validated['visit_place'],
             'visit_date' => $validated['visit_date'],
         ]);
@@ -78,12 +85,12 @@ class MedicalLetterController extends Controller
 
         if ($request->hasFile('file_path')) {
             $file = $request->file('file_path');
-            $path = $file->store('medical_letters', 'public');
-            if (!$path) {
-                Log::error('Error al guardar el archivo.');
-                return response()->json(['message' => 'Error al guardar el archivo'], 500);
-            }
-            $dataToUpdate['file_path'] = $path;
+            // Subir el archivo a Cloudinary
+            $uploadedFile = Cloudinary::upload($file->getRealPath(), [
+                'folder' => 'medical_letters', // Puedes especificar una carpeta
+            ]);
+            $filePath = $uploadedFile->getSecureUrl(); // Obtenemos la URL segura de Cloudinary
+            $dataToUpdate['file_path'] = $filePath; // Actualizamos el campo file_path con la nueva URL
         }
 
         if (empty($dataToUpdate)) {
