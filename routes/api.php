@@ -33,8 +33,5 @@ Route::middleware('auth:sanctum')->controller(MedicalLetterController::class)->g
     Route::delete('/medical/{id}', 'destroy');
 });
 
-Route::get('/test-url', [TestController::class, 'testUrl']);
 
-Route::get('/ping', function () {
-    return 'Pong';
-});
+

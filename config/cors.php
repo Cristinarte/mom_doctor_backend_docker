@@ -21,7 +21,6 @@ return [
 
     'allowed_origins' => [env('FRONTEND_URL', 'https://momdoctor.web.app')],
 
-
     'allowed_origins_patterns' => [],
 
     'allowed_headers' => ['*'],
