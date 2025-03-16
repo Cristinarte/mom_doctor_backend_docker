@@ -6,36 +6,16 @@ use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
 use App\Models\MedicalLetter;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
+use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 
 class MedicalLetterController extends Controller
 {
-    /**
-     * Obtener todas las cartas médicas del usuario autenticado.
-     * 
-     * @return \Illuminate\Http\JsonResponse
-     */
     public function index()
     {
         $medicalLetters = MedicalLetter::where('user_id', auth()->id())->get();
-        // Ajustamos file_path para devolver la URL completa de S3
-        $medicalLetters = $medicalLetters->map(function ($letter) {
-            $letter->file_path = Storage::disk('s3')->url($letter->file_path);
-            return $letter;
-        });
         return response()->json($medicalLetters);
     }
 
-    /**
-     * Crear una nueva carta médica.
-     *
-     * Valida los datos de la solicitud y guarda la nueva carta médica
-     * asociada al usuario autenticado. Si se incluye un archivo en la solicitud,
-     * este se guarda en el sistema de almacenamiento de S3.
-     * 
-     * @param \Illuminate\Http\Request $request
-     * @return \Illuminate\Http\JsonResponse
-     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -48,8 +28,10 @@ class MedicalLetterController extends Controller
         ]);
 
         if ($request->hasFile('file_path') && $request->file('file_path')->isValid()) {
-            // Cambiamos 'public' por 's3'
-            $filePath = $request->file('file_path')->store('medical_letters', 's3');
+            $uploadedFile = Cloudinary::upload($request->file('file_path')->getRealPath(), [
+                'folder' => 'medical_letters',
+            ]);
+            $fileUrl = $uploadedFile->getSecurePath();
         } else {
             return response()->json(['message' => 'Archivo no válido'], 400);
         }
@@ -59,7 +41,7 @@ class MedicalLetterController extends Controller
             'user_id' => $userId,
             'name_children' => $validated['name_children'],
             'specialist_name' => $validated['specialist_name'],
-            'file_path' => $filePath,
+            'file_path' => $fileUrl,
             'visit_place' => $validated['visit_place'],
             'visit_date' => $validated['visit_date'],
         ]);
@@ -67,33 +49,15 @@ class MedicalLetterController extends Controller
         return response()->json($medicalLetter, 201);
     }
 
-    /**
-     * Obtener una carta médica específica por ID.
-     * 
-     * @param int $id El ID de la carta médica.
-     * @return \Illuminate\Http\JsonResponse
-     */
     public function show($id)
     {
         $medicalLetter = MedicalLetter::find($id);
         if (!$medicalLetter || $medicalLetter->user_id !== auth()->id()) {
             return response()->json(['message' => 'Volante no encontrado o no autorizado'], 404);
         }
-        // Ajustamos file_path para devolver la URL completa de S3
-        $medicalLetter->file_path = Storage::disk('s3')->url($medicalLetter->file_path);
         return response()->json($medicalLetter);
     }
 
-    /**
-     * Actualizar una carta médica existente.
-     * 
-     * Solo se actualizan los campos que son enviados en la solicitud.
-     * Si se incluye un nuevo archivo de carta médica, se guarda en S3.
-     * 
-     * @param \Illuminate\Http\Request $request
-     * @param int $id El ID de la carta médica a actualizar.
-     * @return \Illuminate\Http\JsonResponse
-     */
     public function update(Request $request, $id)
     {
         Log::info('Datos recibidos para actualizar:', $request->all());
@@ -111,23 +75,17 @@ class MedicalLetterController extends Controller
             'file_path' => 'nullable|file|mimes:jpg,jpeg,png,gif|max:2048',
         ]);
 
-        // Actualizar solo los campos enviados
         $dataToUpdate = array_filter($validated, function ($value) {
-            return !is_null($value); // Excluir valores nulos
+            return !is_null($value);
         });
 
         if ($request->hasFile('file_path')) {
-            $file = $request->file('file_path');
-            // Cambiamos 'public' por 's3'
-            $path = $file->store('medical_letters', 's3');
-            if (!$path) {
-                Log::error('Error al guardar el archivo.');
-                return response()->json(['message' => 'Error al guardar el archivo'], 500);
-            }
-            $dataToUpdate['file_path'] = $path;
+            $uploadedFile = Cloudinary::upload($request->file('file_path')->getRealPath(), [
+                'folder' => 'medical_letters',
+            ]);
+            $dataToUpdate['file_path'] = $uploadedFile->getSecurePath();
         }
 
-        // Si no hay datos para actualizar, devolver el volante sin cambios
         if (empty($dataToUpdate)) {
             Log::warning('No se enviaron datos para actualizar.');
             return response()->json([
@@ -150,16 +108,10 @@ class MedicalLetterController extends Controller
 
         return response()->json([
             'message' => 'Volante actualizado correctamente',
-            'volante' => $medicalLetter->fresh(), // Devuelve el modelo actualizado
+            'volante' => $medicalLetter->fresh(),
         ]);
     }
 
-    /**
-     * Eliminar una carta médica existente.
-     * 
-     * @param int $id El ID de la carta médica a eliminar.
-     * @return \Illuminate\Http\JsonResponse
-     */
     public function destroy($id)
     {
         $medicalLetter = MedicalLetter::find($id);
