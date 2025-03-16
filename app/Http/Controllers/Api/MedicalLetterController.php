@@ -18,6 +18,11 @@ class MedicalLetterController extends Controller
     public function index()
     {
         $medicalLetters = MedicalLetter::where('user_id', auth()->id())->get();
+        // Ajustamos file_path para devolver la URL completa de S3
+        $medicalLetters = $medicalLetters->map(function ($letter) {
+            $letter->file_path = Storage::disk('s3')->url($letter->file_path);
+            return $letter;
+        });
         return response()->json($medicalLetters);
     }
 
@@ -26,7 +31,7 @@ class MedicalLetterController extends Controller
      *
      * Valida los datos de la solicitud y guarda la nueva carta médica
      * asociada al usuario autenticado. Si se incluye un archivo en la solicitud,
-     * este se guarda en el sistema de almacenamiento público.
+     * este se guarda en el sistema de almacenamiento de S3.
      * 
      * @param \Illuminate\Http\Request $request
      * @return \Illuminate\Http\JsonResponse
@@ -43,7 +48,8 @@ class MedicalLetterController extends Controller
         ]);
 
         if ($request->hasFile('file_path') && $request->file('file_path')->isValid()) {
-            $filePath = $request->file('file_path')->store('medical_letters', 'public');
+            // Cambiamos 'public' por 's3'
+            $filePath = $request->file('file_path')->store('medical_letters', 's3');
         } else {
             return response()->json(['message' => 'Archivo no válido'], 400);
         }
@@ -73,6 +79,8 @@ class MedicalLetterController extends Controller
         if (!$medicalLetter || $medicalLetter->user_id !== auth()->id()) {
             return response()->json(['message' => 'Volante no encontrado o no autorizado'], 404);
         }
+        // Ajustamos file_path para devolver la URL completa de S3
+        $medicalLetter->file_path = Storage::disk('s3')->url($medicalLetter->file_path);
         return response()->json($medicalLetter);
     }
 
@@ -80,7 +88,7 @@ class MedicalLetterController extends Controller
      * Actualizar una carta médica existente.
      * 
      * Solo se actualizan los campos que son enviados en la solicitud.
-     * Si se incluye un nuevo archivo de carta médica, se guarda en el almacenamiento público.
+     * Si se incluye un nuevo archivo de carta médica, se guarda en S3.
      * 
      * @param \Illuminate\Http\Request $request
      * @param int $id El ID de la carta médica a actualizar.
@@ -110,7 +118,8 @@ class MedicalLetterController extends Controller
 
         if ($request->hasFile('file_path')) {
             $file = $request->file('file_path');
-            $path = $file->store('medical_letters', 'public');
+            // Cambiamos 'public' por 's3'
+            $path = $file->store('medical_letters', 's3');
             if (!$path) {
                 Log::error('Error al guardar el archivo.');
                 return response()->json(['message' => 'Error al guardar el archivo'], 500);
