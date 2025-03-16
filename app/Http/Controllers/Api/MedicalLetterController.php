@@ -18,6 +18,8 @@ class MedicalLetterController extends Controller
 
     public function store(Request $request)
     {
+        Log::info('Datos recibidos para crear volante:', $request->all());
+    
         $validated = $request->validate([
             'user_id' => 'required|exists:users,id',
             'name_children' => 'required|string',
@@ -26,26 +28,44 @@ class MedicalLetterController extends Controller
             'visit_place' => 'required|string',
             'visit_date' => 'required|date',
         ]);
-
+    
+        Log::info('Datos validados correctamente:', $validated);
+    
+        // Comprobamos si el archivo es válido
         if ($request->hasFile('file_path') && $request->file('file_path')->isValid()) {
-            $filePath = $request->file('file_path')->store('medical_letters', 'public');
+            try {
+                // Subir el archivo a Cloudinary
+                $uploadedFile = Cloudinary::upload($request->file('file_path')->getRealPath(), [
+                    'folder' => 'medical_letters', // Especificamos el folder dentro de Cloudinary
+                ]);
+    
+                // Obtener la URL segura del archivo subido
+                $filePath = $uploadedFile->getSecureUrl();
+                Log::info('Archivo subido a Cloudinary:', ['file_path' => $filePath]);
+            } catch (\Exception $e) {
+                Log::error('Error al subir el archivo a Cloudinary:', ['error' => $e->getMessage()]);
+                return response()->json(['message' => 'Error al subir el archivo'], 500);
+            }
         } else {
+            Log::error('Archivo no válido o no proporcionado');
             return response()->json(['message' => 'Archivo no válido'], 400);
         }
-
+    
+        // Guardar el volante con la URL de la imagen subida a Cloudinary
         $userId = auth()->id();
         $medicalLetter = MedicalLetter::create([
             'user_id' => $userId,
             'name_children' => $validated['name_children'],
             'specialist_name' => $validated['specialist_name'],
-            'file_path' => $filePath,
+            'file_path' => $filePath, // Guardamos la URL de Cloudinary aquí
             'visit_place' => $validated['visit_place'],
             'visit_date' => $validated['visit_date'],
         ]);
-
+    
+        Log::info('Volante creado correctamente:', $medicalLetter->toArray());
+    
         return response()->json($medicalLetter, 201);
     }
-
     public function show($id)
     {
         $medicalLetter = MedicalLetter::find($id);
