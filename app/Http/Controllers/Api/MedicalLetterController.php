@@ -7,7 +7,6 @@ use App\Http\Controllers\Controller;
 use App\Models\MedicalLetter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 
 class MedicalLetterController extends Controller
 {
@@ -19,8 +18,6 @@ class MedicalLetterController extends Controller
 
     public function store(Request $request)
     {
-        Log::info('Datos recibidos para crear volante:', $request->all());
-    
         $validated = $request->validate([
             'user_id' => 'required|exists:users,id',
             'name_children' => 'required|string',
@@ -29,22 +26,13 @@ class MedicalLetterController extends Controller
             'visit_place' => 'required|string',
             'visit_date' => 'required|date',
         ]);
-    
-        Log::info('Datos validados correctamente:', $validated);
-    
+
         if ($request->hasFile('file_path') && $request->file('file_path')->isValid()) {
-            try {
-                $filePath = $request->file('file_path')->store('medical_letters', 'cloudinary');
-                Log::info('Archivo subido a Cloudinary:', ['file_path' => $filePath]);
-            } catch (\Exception $e) {
-                Log::error('Error al subir el archivo a Cloudinary:', ['error' => $e->getMessage()]);
-                return response()->json(['message' => 'Error al subir el archivo'], 500);
-            }
+            $filePath = $request->file('file_path')->store('medical_letters', 'public');
         } else {
-            Log::error('Archivo no válido o no proporcionado');
             return response()->json(['message' => 'Archivo no válido'], 400);
         }
-    
+
         $userId = auth()->id();
         $medicalLetter = MedicalLetter::create([
             'user_id' => $userId,
@@ -54,12 +42,9 @@ class MedicalLetterController extends Controller
             'visit_place' => $validated['visit_place'],
             'visit_date' => $validated['visit_date'],
         ]);
-    
-        Log::info('Volante creado correctamente:', $medicalLetter->toArray());
-    
+
         return response()->json($medicalLetter, 201);
     }
-    
 
     public function show($id)
     {
@@ -93,12 +78,12 @@ class MedicalLetterController extends Controller
 
         if ($request->hasFile('file_path')) {
             $file = $request->file('file_path');
-            // Subir el archivo a Cloudinary
-            $uploadedFile = Cloudinary::upload($file->getRealPath(), [
-                'folder' => 'medical_letters', // Puedes especificar una carpeta
-            ]);
-            $filePath = $uploadedFile->getSecureUrl(); // Obtenemos la URL segura de Cloudinary
-            $dataToUpdate['file_path'] = $filePath; // Actualizamos el campo file_path con la nueva URL
+            $path = $file->store('medical_letters', 'public');
+            if (!$path) {
+                Log::error('Error al guardar el archivo.');
+                return response()->json(['message' => 'Error al guardar el archivo'], 500);
+            }
+            $dataToUpdate['file_path'] = $path;
         }
 
         if (empty($dataToUpdate)) {
