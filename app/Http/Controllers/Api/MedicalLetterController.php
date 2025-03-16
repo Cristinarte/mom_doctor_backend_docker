@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
 use App\Models\MedicalLetter;
 use Illuminate\Http\Request;
-use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
+use Illuminate\Support\Facades\Storage;
 
 class MedicalLetterController extends Controller
 {
@@ -28,10 +28,7 @@ class MedicalLetterController extends Controller
         ]);
 
         if ($request->hasFile('file_path') && $request->file('file_path')->isValid()) {
-            $uploadedFile = Cloudinary::upload($request->file('file_path')->getRealPath(), [
-                'folder' => 'medical_letters',
-            ]);
-            $fileUrl = $uploadedFile->getSecurePath();
+            $filePath = $request->file('file_path')->store('medical_letters', 'public');
         } else {
             return response()->json(['message' => 'Archivo no válido'], 400);
         }
@@ -41,7 +38,7 @@ class MedicalLetterController extends Controller
             'user_id' => $userId,
             'name_children' => $validated['name_children'],
             'specialist_name' => $validated['specialist_name'],
-            'file_path' => $fileUrl,
+            'file_path' => $filePath,
             'visit_place' => $validated['visit_place'],
             'visit_date' => $validated['visit_date'],
         ]);
@@ -80,10 +77,13 @@ class MedicalLetterController extends Controller
         });
 
         if ($request->hasFile('file_path')) {
-            $uploadedFile = Cloudinary::upload($request->file('file_path')->getRealPath(), [
-                'folder' => 'medical_letters',
-            ]);
-            $dataToUpdate['file_path'] = $uploadedFile->getSecurePath();
+            $file = $request->file('file_path');
+            $path = $file->store('medical_letters', 'public');
+            if (!$path) {
+                Log::error('Error al guardar el archivo.');
+                return response()->json(['message' => 'Error al guardar el archivo'], 500);
+            }
+            $dataToUpdate['file_path'] = $path;
         }
 
         if (empty($dataToUpdate)) {
