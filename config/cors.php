@@ -19,7 +19,7 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => [env('FRONTEND_URL', 'https://momdoctor.web.app')],
+    'allowed_origins' => [env('FRONTEND_URL', 'https://mom-doctor-frontend.onrender.com')],
 
     'allowed_origins_patterns' => [],
 
