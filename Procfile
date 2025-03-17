@@ -1,2 +1,1 @@
-web: vendor/bin/heroku-php-apache2
-postdeploy: php artisan storage:link
+web: php artisan storage:link && php artisan serve --host=0.0.0.0 --port=3000
